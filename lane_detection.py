@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import os
 
 def select_white_yellow(image):
     hsl = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
@@ -43,8 +44,14 @@ def process_image(image):
     lines = detect_lines(roi)
     return draw_lines(image, lines)
 
-# 🎥 Video path (confirmed from your folder)
-video_path = r"E:\Downloads\Lane-lines-detection-using-Python-and-OpenCV-master\Lane-lines-detection-using-Python-and-OpenCV-master\test_videos\solidWhiteRight.mp4"
+# ✅ Use the correct video file name from your folder
+video_path = "solidYellowLeft.mp4"
+
+# 🔄 Fallback if video doesn't exist
+if not os.path.exists(video_path):
+    print("Video file not found. Please check the path.")
+    exit()
+
 cap = cv2.VideoCapture(video_path)
 
 if not cap.isOpened():
@@ -64,3 +71,4 @@ while cap.isOpened():
 
 cap.release()
 cv2.destroyAllWindows()
+
