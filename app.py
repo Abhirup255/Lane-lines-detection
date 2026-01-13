@@ -2,16 +2,18 @@ import streamlit as st
 import cv2
 import numpy as np
 import os
-import time  # <--- CRITICAL: Import this for smooth video playback
+import time  # Essential for syncing the video speed on the web
 
-# --- CORE LOGIC (Fixed for accuracy) ---
+# --- CORE PROCESSING LOGIC ---
 def process_frame(frame):
+    # 1. Filter for White/Yellow lines (HSL)
     hsl = cv2.cvtColor(frame, cv2.COLOR_BGR2HLS)
     white_mask = cv2.inRange(hsl, (0, 200, 0), (255, 255, 255))
     yellow_mask = cv2.inRange(hsl, (10, 0, 100), (40, 255, 255))
     mask = cv2.bitwise_or(white_mask, yellow_mask)
     filtered = cv2.bitwise_and(frame, frame, mask=mask)
     
+    # 2. Detect Edges and ROI
     gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blur, 50, 150)
@@ -23,9 +25,9 @@ def process_frame(frame):
     cv2.fillPoly(roi_mask, polygon, 255)
     roi = cv2.bitwise_and(edges, roi_mask)
     
+    # 3. Detect and Draw Lines
     lines = cv2.HoughLinesP(roi, 1, np.pi/180, 20, minLineLength=20, maxLineGap=300)
     line_image = np.zeros_like(frame)
-    
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
@@ -33,37 +35,39 @@ def process_frame(frame):
             
     return cv2.addWeighted(frame, 0.8, line_image, 1, 1)
 
-# --- STREAMLIT UI ---
-st.set_page_config(page_title="Auto Lane Detection", layout="centered")
-st.title("🎥 Automated Lane Detection Stream")
+# --- STREAMLIT AUTOMATED INTERFACE ---
+st.set_page_config(page_title="Live Lane Detection", layout="centered")
+st.title("🎥 Real-Time Lane Detection Stream")
+st.info("The model below is processing the video frame-by-frame live on the web.")
 
-# Path must match your GitHub: test_videos/solidWhiteRight.mp4
+# Ensure this path matches your GitHub: test_videos/solidWhiteRight.mp4
 video_path = os.path.join("test_videos", "solidWhiteRight.mp4")
 
 if os.path.exists(video_path):
     cap = cv2.VideoCapture(video_path)
     
-    # This creates a persistent placeholder on the webpage
+    # This creates a persistent "screen" on the web page
     st_frame = st.empty() 
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
-            # Automatic Loop: restarts the video when it ends
+            # LOOP: Restarts the video when it ends
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             continue
 
+        # Process the frame
         processed = process_frame(frame)
         
-        # Convert BGR to RGB so the web browser shows correct colors
+        # WE MUST CONVERT TO RGB: Streamlit displays RGB, OpenCV uses BGR
         output_rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
         
-        # Update the SAME placeholder instead of creating new ones
+        # Display the frame in the placeholder
         st_frame.image(output_rgb, channels="RGB", use_container_width=True)
         
-        # THIS IS THE KEY: 0.01s sleep gives the web browser time to render
+        # SMALL DELAY: Prevents the browser from freezing
         time.sleep(0.01) 
         
     cap.release()
 else:
-    st.error(f"Cannot find video at: {video_path}. Ensure it is uploaded to GitHub in the 'test_videos' folder.")
+    st.error(f"Cannot find video at: {video_path}")
