@@ -3,16 +3,16 @@ import cv2
 import numpy as np
 import os
 
-# --- YOUR PROCESSING LOGIC ---
+# --- CORE LOGIC ---
 def process_frame(frame):
-    # HSL Filtering
+    # 1. HSL Filtering for White/Yellow
     hsl = cv2.cvtColor(frame, cv2.COLOR_BGR2HLS)
     white_mask = cv2.inRange(hsl, (0, 200, 0), (255, 255, 255))
     yellow_mask = cv2.inRange(hsl, (10, 0, 100), (40, 255, 255))
     mask = cv2.bitwise_or(white_mask, yellow_mask)
     filtered = cv2.bitwise_and(frame, frame, mask=mask)
     
-    # Canny Edge & ROI
+    # 2. Edges and ROI
     gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blur, 50, 150)
@@ -24,21 +24,24 @@ def process_frame(frame):
     cv2.fillPoly(roi_mask, polygon, 255)
     roi = cv2.bitwise_and(edges, roi_mask)
     
-    # Hough Lines
+    # 3. Hough Lines
     lines = cv2.HoughLinesP(roi, 1, np.pi/180, 20, minLineLength=20, maxLineGap=300)
     line_image = np.zeros_like(frame)
+    
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            cv2.line(line_image, (x1, y1), (0, 255, 0), 5)
+            # FIXED LINE BELOW: Added (x2, y2)
+            cv2.line(line_image, (x1, y1), (x2, y2), (0, 255, 0), 10)
             
     return cv2.addWeighted(frame, 0.8, line_image, 1, 1)
 
-# --- STREAMLIT AUTO-START INTERFACE ---
+# --- STREAMLIT UI ---
 st.set_page_config(page_title="Auto Lane Detection", layout="centered")
-st.title("🎥 Live Lane Detection Demo")
+st.title("🎥 Automated Lane Detection Stream")
+st.info("The video below is being processed in real-time using your OpenCV pipeline.")
 
-# RELATIVE PATH (Matches your GitHub folder)
+# Relative path for GitHub
 video_path = os.path.join("test_videos", "solidWhiteRight.mp4")
 
 if os.path.exists(video_path):
@@ -52,8 +55,8 @@ if os.path.exists(video_path):
             continue
 
         processed = process_frame(frame)
-        # Convert BGR (OpenCV) to RGB (Web)
+        # Convert BGR to RGB for web display
         st_frame.image(cv2.cvtColor(processed, cv2.COLOR_BGR2RGB), channels="RGB")
     cap.release()
 else:
-    st.error(f"Video not found at {video_path}. Make sure the 'test_videos' folder is on GitHub!")
+    st.error(f"File not found: {video_path}. Please ensure your 'test_videos' folder is on GitHub.")
