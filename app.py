@@ -2,9 +2,9 @@ import streamlit as st
 import cv2
 import numpy as np
 import os
-import time  # <--- Essential for smooth playback
+import time  # <--- CRITICAL: Import this for smooth video playback
 
-# --- CORE LOGIC (Fixed cv2.line) ---
+# --- CORE LOGIC (Fixed for accuracy) ---
 def process_frame(frame):
     hsl = cv2.cvtColor(frame, cv2.COLOR_BGR2HLS)
     white_mask = cv2.inRange(hsl, (0, 200, 0), (255, 255, 255))
@@ -29,7 +29,6 @@ def process_frame(frame):
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            # Ensure all 4 coordinates are present
             cv2.line(line_image, (x1, y1), (x2, y2), (0, 255, 0), 10)
             
     return cv2.addWeighted(frame, 0.8, line_image, 1, 1)
@@ -38,27 +37,33 @@ def process_frame(frame):
 st.set_page_config(page_title="Auto Lane Detection", layout="centered")
 st.title("🎥 Automated Lane Detection Stream")
 
-# Path must match your GitHub folder structure
+# Path must match your GitHub: test_videos/solidWhiteRight.mp4
 video_path = os.path.join("test_videos", "solidWhiteRight.mp4")
 
 if os.path.exists(video_path):
     cap = cv2.VideoCapture(video_path)
-    st_frame = st.empty()  # This is the "screen" that refreshes
+    
+    # This creates a persistent placeholder on the webpage
+    st_frame = st.empty() 
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
-            # Restart video loop automatically
+            # Automatic Loop: restarts the video when it ends
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             continue
 
         processed = process_frame(frame)
-        # Convert BGR to RGB so colors look correct on the web
-        st_frame.image(cv2.cvtColor(processed, cv2.COLOR_BGR2RGB), channels="RGB")
         
-        # SLOW DOWN the loop slightly so the browser doesn't freeze
-        time.sleep(0.03) 
+        # Convert BGR to RGB so the web browser shows correct colors
+        output_rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
+        
+        # Update the SAME placeholder instead of creating new ones
+        st_frame.image(output_rgb, channels="RGB", use_container_width=True)
+        
+        # THIS IS THE KEY: 0.01s sleep gives the web browser time to render
+        time.sleep(0.01) 
         
     cap.release()
 else:
-    st.error(f"Cannot find video at: {video_path}")
+    st.error(f"Cannot find video at: {video_path}. Ensure it is uploaded to GitHub in the 'test_videos' folder.")
